@@ -1,17 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
   Alert,
+  StatusBar,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../../contexts/AuthContext';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
-import { TextInput, HelperText, Button } from 'react-native-paper';
+import {
+  Text,
+  TextInput,
+  Button,
+  Surface,
+  useTheme,
+  SegmentedButtons,
+} from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Animated, {
+  FadeInDown,
+  FadeInUp,
+  Layout,
+} from 'react-native-reanimated';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
+const { width } = Dimensions.get('window');
 
 const validationSchema = Yup.object().shape({
   firstName: Yup.string().required('First name is required'),
@@ -29,34 +49,21 @@ const validationSchema = Yup.object().shape({
   department: Yup.string().when('role', {
     is: 'nurse',
     then: () => Yup.string().required('Department is required'),
-    otherwise: () => Yup.string().notRequired()
+    otherwise: () => Yup.string().notRequired(),
   }),
   room: Yup.string().when('role', {
     is: 'patient',
     then: () => Yup.string().required('Room is required'),
-    otherwise: () => Yup.string().notRequired()
-  })
+    otherwise: () => Yup.string().notRequired(),
+  }),
 });
-
-const roles = [
-  { label: 'Patient', value: 'patient' },
-  { label: 'Nurse', value: 'nurse' },
-];
 
 export default function RegisterScreen() {
   const { register } = useAuth();
   const navigation = useNavigation<NavigationProp<any>>();
-
-  const initialValues = {
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    department: '',
-    room: '',
-    role: 'patient',
-  };
+  const theme = useTheme();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (values: any) => {
     try {
@@ -87,195 +94,278 @@ export default function RegisterScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-      <Formik
-        initialValues={initialValues}
-        validationSchema={validationSchema}
-        onSubmit={handleSubmit}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <StatusBar barStyle="light-content" />
+      <LinearGradient
+        colors={['#1a237e', '#0d47a1']}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {({
-          handleChange,
-          handleBlur,
-          handleSubmit,
-          values,
-          errors,
-          touched,
-          setFieldValue,
-        }) => (
-          <View>
-            <TextInput
-              label="First Name"
-              onChangeText={handleChange('firstName')}
-              onBlur={handleBlur('firstName')}
-              value={values.firstName}
-              error={touched.firstName && errors.firstName ? true : false}
-              style={styles.input}
-              mode="outlined"
-            />
-            {touched.firstName && errors.firstName && (
-              <HelperText type="error">{errors.firstName}</HelperText>
-            )}
+        <Animated.View
+          entering={FadeInDown.delay(200)}
+          style={styles.headerContainer}
+        >
+          <Surface style={styles.logoContainer}>
+            <Icon name="account-plus" size={60} color={theme.colors.primary} />
+          </Surface>
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Join our healthcare community</Text>
+        </Animated.View>
 
-            <TextInput
-              label="Last Name"
-              onChangeText={handleChange('lastName')}
-              onBlur={handleBlur('lastName')}
-              value={values.lastName}
-              error={touched.lastName && errors.lastName ? true : false}
-              style={styles.input}
-              mode="outlined"
-            />
-            {touched.lastName && errors.lastName && (
-              <HelperText type="error">{errors.lastName}</HelperText>
-            )}
+        <Animated.View
+          entering={FadeInUp.delay(400)}
+          style={styles.formContainer}
+          layout={Layout.springify()}
+        >
+          <BlurView intensity={80} style={styles.formBlur}>
+            <Formik
+              initialValues={{
+                firstName: '',
+                lastName: '',
+                email: '',
+                password: '',
+                confirmPassword: '',
+                role: 'patient',
+                department: '',
+                room: '',
+              }}
+              validationSchema={validationSchema}
+              onSubmit={handleSubmit}
+            >
+              {({
+                handleChange,
+                handleBlur,
+                handleSubmit,
+                setFieldValue,
+                values,
+                errors,
+                touched,
+              }) => (
+                <View style={styles.form}>
+                  <SegmentedButtons
+                    value={values.role}
+                    onValueChange={(value) => {
+                      setFieldValue('role', value);
+                      setFieldValue('department', '');
+                      setFieldValue('room', '');
+                    }}
+                    buttons={[
+                      { value: 'patient', label: 'Patient' },
+                      { value: 'nurse', label: 'Nurse' },
+                    ]}
+                    style={styles.roleSelector}
+                  />
 
-            <TextInput
-              label="Email"
-              onChangeText={handleChange('email')}
-              onBlur={handleBlur('email')}
-              value={values.email}
-              error={touched.email && errors.email ? true : false}
-              style={styles.input}
-              mode="outlined"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            {touched.email && errors.email && (
-              <HelperText type="error">{errors.email}</HelperText>
-            )}
+                  <View style={styles.row}>
+                    <TextInput
+                      mode="outlined"
+                      label="First Name"
+                      value={values.firstName}
+                      onChangeText={handleChange('firstName')}
+                      onBlur={handleBlur('firstName')}
+                      error={touched.firstName && !!errors.firstName}
+                      style={[styles.input, styles.halfInput]}
+                      left={<TextInput.Icon icon="account" />}
+                    />
+                    <TextInput
+                      mode="outlined"
+                      label="Last Name"
+                      value={values.lastName}
+                      onChangeText={handleChange('lastName')}
+                      onBlur={handleBlur('lastName')}
+                      error={touched.lastName && !!errors.lastName}
+                      style={[styles.input, styles.halfInput]}
+                      left={<TextInput.Icon icon="account" />}
+                    />
+                  </View>
 
-            <TextInput
-              label="Password"
-              onChangeText={handleChange('password')}
-              onBlur={handleBlur('password')}
-              value={values.password}
-              error={touched.password && errors.password ? true : false}
-              style={styles.input}
-              mode="outlined"
-              secureTextEntry
-            />
-            {touched.password && errors.password && (
-              <HelperText type="error">{errors.password}</HelperText>
-            )}
+                  <TextInput
+                    mode="outlined"
+                    label="Email"
+                    value={values.email}
+                    onChangeText={handleChange('email')}
+                    onBlur={handleBlur('email')}
+                    error={touched.email && !!errors.email}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.input}
+                    left={<TextInput.Icon icon="email" />}
+                  />
 
-            <TextInput
-              label="Confirm Password"
-              onChangeText={handleChange('confirmPassword')}
-              onBlur={handleBlur('confirmPassword')}
-              value={values.confirmPassword}
-              error={touched.confirmPassword && errors.confirmPassword ? true : false}
-              style={styles.input}
-              mode="outlined"
-              secureTextEntry
-            />
-            {touched.confirmPassword && errors.confirmPassword && (
-              <HelperText type="error">{errors.confirmPassword}</HelperText>
-            )}
+                  <TextInput
+                    mode="outlined"
+                    label="Password"
+                    value={values.password}
+                    onChangeText={handleChange('password')}
+                    onBlur={handleBlur('password')}
+                    error={touched.password && !!errors.password}
+                    secureTextEntry={!showPassword}
+                    style={styles.input}
+                    left={<TextInput.Icon icon="lock" />}
+                    right={
+                      <TextInput.Icon
+                        icon={showPassword ? 'eye-off' : 'eye'}
+                        onPress={() => setShowPassword(!showPassword)}
+                      />
+                    }
+                  />
 
-            <TextInput
-              label="Role"
-              value={values.role === 'patient' ? 'Patient' : 'Nurse'}
-              mode="outlined"
-              style={styles.input}
-              render={({ style, ...props }) => (
-                <TouchableOpacity
-                  style={[style, styles.dropdownButton]}
-                  onPress={() => {
-                    const newRole = values.role === 'patient' ? 'nurse' : 'patient';
-                    setFieldValue('role', newRole);
-                    setFieldValue('department', '');
-                    setFieldValue('room', '');
-                  }}
-                >
-                  <Text>{props.value}</Text>
-                </TouchableOpacity>
+                  <TextInput
+                    mode="outlined"
+                    label="Confirm Password"
+                    value={values.confirmPassword}
+                    onChangeText={handleChange('confirmPassword')}
+                    onBlur={handleBlur('confirmPassword')}
+                    error={touched.confirmPassword && !!errors.confirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                    style={styles.input}
+                    left={<TextInput.Icon icon="lock-check" />}
+                    right={
+                      <TextInput.Icon
+                        icon={showConfirmPassword ? 'eye-off' : 'eye'}
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      />
+                    }
+                  />
+
+                  {values.role === 'nurse' && (
+                    <TextInput
+                      mode="outlined"
+                      label="Department"
+                      value={values.department}
+                      onChangeText={handleChange('department')}
+                      onBlur={handleBlur('department')}
+                      error={touched.department && !!errors.department}
+                      style={styles.input}
+                      left={<TextInput.Icon icon="hospital-building" />}
+                    />
+                  )}
+
+                  {values.role === 'patient' && (
+                    <TextInput
+                      mode="outlined"
+                      label="Room Number"
+                      value={values.room}
+                      onChangeText={handleChange('room')}
+                      onBlur={handleBlur('room')}
+                      error={touched.room && !!errors.room}
+                      style={styles.input}
+                      keyboardType="numeric"
+                      left={<TextInput.Icon icon="door" />}
+                    />
+                  )}
+
+                  <Button
+                    mode="contained"
+                    onPress={() => handleSubmit()}
+                    style={styles.button}
+                    contentStyle={styles.buttonContent}
+                  >
+                    Register
+                  </Button>
+
+                  <TouchableOpacity
+                    style={styles.loginButton}
+                    onPress={() => navigation.navigate('Login')}
+                  >
+                    <Text style={styles.loginText}>
+                      Already have an account?{' '}
+                      <Text style={styles.loginLink}>Login</Text>
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               )}
-            />
-
-            {values.role === 'nurse' && (
-              <TextInput
-                label="Department"
-                onChangeText={handleChange('department')}
-                onBlur={handleBlur('department')}
-                value={values.department}
-                error={touched.department && errors.department ? true : false}
-                style={styles.input}
-                mode="outlined"
-              />
-            )}
-            {touched.department && errors.department && (
-              <HelperText type="error">{errors.department}</HelperText>
-            )}
-
-            {values.role === 'patient' && (
-              <TextInput
-                label="Room"
-                onChangeText={handleChange('room')}
-                onBlur={handleBlur('room')}
-                value={values.room}
-                error={touched.room && errors.room ? true : false}
-                style={styles.input}
-                mode="outlined"
-              />
-            )}
-            {touched.room && errors.room && (
-              <HelperText type="error">{errors.room}</HelperText>
-            )}
-
-            <Button
-              mode="contained"
-              onPress={handleSubmit}
-              style={styles.button}
-            >
-              Register
-            </Button>
-
-            <TouchableOpacity
-              style={styles.loginLink}
-              onPress={() => navigation.navigate('Login')}
-            >
-              <Text style={styles.loginText}>
-                Already have an account? Login here
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </Formik>
-    </ScrollView>
+            </Formik>
+          </BlurView>
+        </Animated.View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
     padding: 20,
-    backgroundColor: '#fff',
+  },
+  headerContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#fff',
     textAlign: 'center',
   },
+  subtitle: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  formContainer: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    width: width - 40,
+  },
+  formBlur: {
+    padding: 20,
+  },
+  form: {
+    width: '100%',
+  },
+  roleSelector: {
+    marginBottom: 16,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
   input: {
-    marginBottom: 5,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  halfInput: {
+    width: '48%',
   },
   button: {
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 8,
+    marginBottom: 16,
+    borderRadius: 8,
+  },
+  buttonContent: {
     paddingVertical: 8,
   },
-  loginLink: {
+  loginButton: {
     alignItems: 'center',
-    marginTop: 15,
   },
   loginText: {
-    color: '#007AFF',
+    color: '#fff',
+    fontSize: 14,
   },
-  dropdownButton: {
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    height: 56,
+  loginLink: {
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
   },
 });

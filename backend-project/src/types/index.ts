@@ -75,3 +75,26 @@ export interface IDepartment {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface ITask {
+  _id: string;
+  description: string;
+  assignedTo: string;
+  assignedBy: string;
+  patient?: string;
+  status: 'pending' | 'completed' | 'rejected';
+  rejectionReason?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IMessage {
+  _id: string;
+  sender: string;
+  receiver: string;
+  content: string;
+  messageType: 'text' | 'image';
+  imageUrl?: string;
+  isRead: boolean;
+  createdAt: Date;
+}

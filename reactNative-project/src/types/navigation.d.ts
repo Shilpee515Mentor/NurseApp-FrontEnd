@@ -1,0 +1,24 @@
+export type RootStackParamList = {
+  Login: undefined;
+  Register: undefined;
+  AdminDashboard: undefined;
+  NurseDashboard: undefined;
+  PatientDashboard: undefined;
+  Chat: undefined;
+  Appointments: undefined;
+  PatientProfile: undefined;
+  MedicalRecords: undefined;
+  Medications: undefined;
+  Emergency: undefined;
+  NurseApproval: undefined;
+  CreateRequest: undefined;
+  RequestManagement: undefined;
+  ManageNurses: undefined;
+  PatientRecords: undefined;
+  Reports: undefined;
+  MyPatients: undefined;
+  PatientRegistration: undefined;
+  Schedule: undefined;
+  Tasks: undefined;
+  Messages: undefined;
+}; 

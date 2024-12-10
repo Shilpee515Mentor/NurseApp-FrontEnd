@@ -11,6 +11,8 @@ import authRoutes from './routes/auth';
 import requestRoutes from './routes/requests';
 import userRoutes from './routes/users';
 import departmentRoutes from './routes/departments';
+import taskRoutes from './routes/taskRoutes';
+import messageRoutes from './routes/messageRoutes';
 
 dotenv.config();
 
@@ -47,6 +49,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Socket.IO setup
 setupSocketHandlers(io);

@@ -8,56 +8,8 @@ const tools: Tool[] = [
     {
         type: 'function',
         function: {
-            name: 'schedule_appointment',
-            description: 'Schedule a medical appointment',
-            parameters: {
-                type: 'object',
-                properties: {
-                    symptoms: {
-                        type: 'string',
-                        description: 'Patient symptoms'
-                    },
-                    severity: {
-                        type: 'string',
-                        description: 'Severity',
-                        enum: ['low', 'medium', 'high']
-                    },
-                    preferredDate: {
-                        type: 'string',
-                        description: 'Preferred date'
-                    }
-                },
-                required: ['symptoms', 'severity']
-            }
-        }
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'request_nurse_assistance',
-            description: 'Request nurse help',
-            parameters: {
-                type: 'object',
-                properties: {
-                    urgency: {
-                        type: 'string',
-                        description: 'Urgency level',
-                        enum: ['routine', 'urgent', 'emergency']
-                    },
-                    reason: {
-                        type: 'string',
-                        description: 'Reason for help'
-                    }
-                },
-                required: ['urgency', 'reason']
-            }
-        }
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'create_assistance_request',
-            description: 'Create a nursing assistance request after confirming with the patient',
+            name: 'create_request',
+            description: 'Create a patient assistance request',
             parameters: {
                 type: 'object',
                 properties: {
@@ -88,13 +40,31 @@ const tools: Tool[] = [
                             'Outpatient'
                         ],
                         description: 'Department responsible for handling the request'
-                    },
-                    requiresConfirmation: {
-                        type: 'boolean',
-                        description: 'Whether to ask for patient confirmation before creating the request'
                     }
                 },
-                required: ['priority', 'description', 'department', 'requiresConfirmation']
+                required: ['priority', 'description', 'department']
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'get_patient_requests',
+            description: 'Retrieve patient requests',
+            parameters: {
+                type: 'object',
+                properties: {
+                    status: {
+                        type: 'string',
+                        enum: ['pending', 'in_progress', 'completed', 'cancelled'],
+                        description: 'Filter requests by status'
+                    },
+                    patientId: {
+                        type: 'string',
+                        description: 'ID of the patient'
+                    }
+                },
+                required: ['patientId']
             }
         }
     }
@@ -129,33 +99,37 @@ class LLMService {
 
     private systemPrompt = `You are a helpful hospital assistant for admitted patients. Your role is to:
 
-1. Help patients with their immediate needs:
-   - Comfort-related requests (blankets, pillows, room temperature)
-   - Basic necessities (water, food, personal items)
-   - Assistance with mobility or positioning
-   - Pain management needs
-   - Bathroom assistance
+1. Engage in a natural conversation with patients to understand their needs:
+   - Ask clarifying questions when needed
+   - Maintain context of the conversation
+   - Show empathy and understanding
 
-2. Understand and relay medical care needs:
-   - Current discomfort or pain (scale 1-10)
-   - Medication timing or questions
-   - Changes in symptoms
-   - Concerns about treatment
+2. Collect relevant information for assistance requests:
+   - Nature of the assistance needed
+   - Urgency/priority level
+   - Relevant medical context
+   - Department that should handle the request
 
-3. Communication guidelines:
-   - Be warm and empathetic
-   - Address the patient respectfully
-   - Ask one question at a time
-   - Confirm understanding of requests
-   - Prioritize urgent needs
-   - Maintain a calm, reassuring tone
+3. Before creating a request:
+   - Summarize the patient's needs
+   - Ask for confirmation
+   - Explain what will happen next
 
 4. Response protocol:
-   - For medical assistance: Use request_nurse_assistance (urgent/emergency needs)
-   - For routine care: Use schedule_appointment (doctor visits, procedures)
-   - Always clarify the urgency level of requests
+   - Use create_request for new assistance requests
+   - Use get_patient_requests to check status of existing requests
+   - Always maintain a conversational tone
+   - Prioritize patient safety and comfort
 
-Keep responses focused on understanding and addressing the patient's immediate needs while ensuring their comfort and safety.`;
+Format your responses using this JSON structure:
+{
+    "thoughts": "Your internal reasoning about the situation",
+    "response": "Your response to the patient",
+    "function_call": {
+        "name": "function_name",
+        "parameters": {}
+    }
+}`;
 
     private async retryWithBackoff<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
         let retries = 0;
@@ -200,79 +174,46 @@ Keep responses focused on understanding and addressing the patient's immediate n
             // Store context for use in handleFunctionCall
             this.context = context || {};
 
-            // If there's a pending request and the user confirms
-            if (context?.pendingRequest && userMessage.toLowerCase().includes('yes')) {
-                try {
-                    const request = new Request({
-                        ...context.pendingRequest,
-                        priority: context.pendingRequest.priority.toUpperCase()
-                    });
-                    await request.save();
-                    
-                    return {
-                        text: `Perfect! I've submitted your request for assistance:\n\n` +
-                              `Priority: ${context.pendingRequest.priority}\n` +
-                              `Department: ${context.pendingRequest.department}\n` +
-                              `Description: ${context.pendingRequest.description}\n` +
-                              `Room: ${context.pendingRequest.room}\n\n` +
-                              `A nurse will be notified and will assist you soon.`
-                    };
-                } catch (error) {
-                    console.error('Error creating request:', error);
-                    return {
-                        text: 'I apologize, but I encountered an error while creating your request. Please try again or call for assistance using your bedside button.'
-                    };
-                }
-            }
-            
-            // If there's a pending request and the user declines
-            if (context?.pendingRequest && userMessage.toLowerCase().includes('no')) {
-                return {
-                    text: "I understand. I won't submit the request. Is there something else you'd like me to help you with?"
-                };
-            }
-
-            // Add conversation context to the system prompt
-            const enhancedSystemPrompt = `${this.systemPrompt}\n\nCurrent context:\n` +
-                `- Patient Room: ${context?.room || 'Unknown'}\n` +
-                `- Department: ${context?.department || 'General'}\n` +
-                `- Previous Requests: ${context?.previousRequests || 'None'}\n\n` +
-                `Based on the conversation, determine if a nursing assistance request should be created.`;
+            const messages = [
+                { role: 'system', content: this.systemPrompt },
+                ...(context?.previousMessages || []),
+                { role: 'user', content: userMessage }
+            ];
 
             const response = await this.retryWithBackoff(() =>
                 ollama.chat({
                     model: 'mistral',
-                    messages: [
-                        { role: 'system', content: enhancedSystemPrompt },
-                        { role: 'user', content: userMessage }
-                    ],
+                    messages,
+                    format: 'json',
                     stream: false,
-                    tools: tools
+                    options: {
+                        temperature: 0.7,
+                        num_predict: 1024,
+                    }
                 })
             );
 
-            this.text = response.message.content;
-            this.functionCall = response.message.tool_calls?.[0];
-
-            if (this.functionCall) {
-                const result = await this.handleFunctionCall(this.functionCall);
-                if (!result) {
+            const result = JSON.parse(response.message.content);
+            
+            // Handle function calls if present
+            if (result.function_call) {
+                const functionResult = await this.handleFunctionCall(result.function_call);
+                if (functionResult) {
                     return {
-                        text: "I apologize, but I couldn't process that request. Is there something else I can help you with?"
+                        text: result.response + '\n' + functionResult.text,
+                        functionCall: result.function_call,
+                        pendingRequest: functionResult.pendingRequest
                     };
                 }
-                return {
-                    text: result.text,
-                    pendingRequest: result.pendingRequest
-                };
             }
 
-            return { text: this.text };
+            return {
+                text: result.response,
+                functionCall: result.function_call
+            };
         } catch (error) {
             console.error('Error in processMessage:', error);
-            return {
-                text: 'I apologize, but I encountered an error. Please try again or call for assistance using your bedside button.'
-            };
+            throw error;
         }
     }
 
@@ -365,68 +306,56 @@ Keep responses focused on understanding and addressing the patient's immediate n
         if (!functionCall) return null;
 
         switch (functionCall.name) {
-            case 'schedule_appointment':
-                return {
-                    text: `✓ Appointment scheduled: ${functionCall.arguments.symptoms} (${functionCall.arguments.severity} severity)`
-                };
-
-            case 'request_nurse_assistance':
-                return {
-                    text: `⚡ Nurse requested: ${functionCall.arguments.reason} (${functionCall.arguments.urgency})`
-                };
-
-            case 'create_assistance_request': {
-                const { priority, description, department, requiresConfirmation } = functionCall.arguments;
+            case 'create_request': {
+                const { priority, description, department } = functionCall.parameters;
                 
                 // Extract room and patient info from context if available
                 const room = this.context?.room || 'Unknown';
                 const patient = this.context?.patientId;
                 
-                if (requiresConfirmation) {
-                    // Return a confirmation message to the patient
+                // Create the request immediately using the Request model
+                try {
+                    const request = new Request({
+                        priority: priority.toUpperCase(),
+                        description,
+                        department,
+                        room,
+                        patient,
+                        status: 'PENDING'
+                    });
+                    await request.save();
+                    
                     return {
-                        text: `I'll help you create a request for nursing assistance. Here's what I understand:\n\n` +
+                        text: `I've created a request for nursing assistance:\n\n` +
                               `Priority: ${priority}\n` +
                               `Department: ${department}\n` +
                               `Description: ${description}\n` +
                               `Room: ${room}\n\n` +
-                              `Would you like me to submit this request? Please confirm with "yes" or "no".`,
-                        pendingRequest: {
-                            priority,
-                            description,
-                            department,
-                            room,
-                            patient,
-                            status: 'PENDING'
-                        }
+                              `A nurse will be notified and will assist you soon.`
                     };
-                } else {
-                    // Create the request immediately using the Request model
-                    try {
-                        const request = new Request({
-                            priority: priority.toUpperCase(),
-                            description,
-                            department,
-                            room,
-                            patient,
-                            status: 'PENDING'
-                        });
-                        await request.save();
-                        
-                        return {
-                            text: `I've created a request for nursing assistance:\n\n` +
-                                  `Priority: ${priority}\n` +
-                                  `Department: ${department}\n` +
-                                  `Description: ${description}\n` +
-                                  `Room: ${room}\n\n` +
-                                  `A nurse will be notified and will assist you soon.`
-                        };
-                    } catch (error) {
-                        console.error('Error creating request:', error);
-                        return {
-                            text: 'I apologize, but I encountered an error while creating your request. Please try again or call for assistance using your bedside button.'
-                        };
-                    }
+                } catch (error) {
+                    console.error('Error creating request:', error);
+                    return {
+                        text: 'I apologize, but I encountered an error while creating your request. Please try again or call for assistance using your bedside button.'
+                    };
+                }
+            }
+
+            case 'get_patient_requests': {
+                const { status, patientId } = functionCall.parameters;
+                
+                // Retrieve patient requests from database
+                try {
+                    const requests = await Request.find({ patientId, status });
+                    return {
+                        text: `Here are your requests:\n\n` +
+                              requests.map(request => `Priority: ${request.priority}\nDepartment: ${request.department}\nDescription: ${request.description}\nRoom: ${request.room}\nStatus: ${request.status}`).join('\n\n')
+                    };
+                } catch (error) {
+                    console.error('Error retrieving requests:', error);
+                    return {
+                        text: 'I apologize, but I encountered an error while retrieving your requests. Please try again or call for assistance using your bedside button.'
+                    };
                 }
             }
 

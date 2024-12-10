@@ -1,40 +1,72 @@
 # Dependencies
 node_modules/
-.pnp
+.pnp/
 .pnp.js
 
-# Expo
-.expo/
+# Testing
+coverage/
+.jest/
+__tests__/
+
+# Production
+build/
 dist/
 web-build/
 
-# Native
-*.orig.*
+# Development
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Expo
+.expo/
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+*.orig.*
+
+# Native
+*.ipa
+*.apk
+*.aab
+*.hprof
+
+# Temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.pid
+*.seed
+*.pid.lock
+
+# Generated files
+ios/Pods/
+android/.gradle
+android/app/build
+android/build
+android/local.properties
+android/captures/
 
 # Metro
 .metro-health-check*
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+# Debug
+debug.log
+.chrome/
 
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-# IDE
-.idea/
-.vscode/ 
+# TypeScript
+*.tsbuildinfo 

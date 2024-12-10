@@ -1,363 +1,321 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
   StyleSheet,
+  ScrollView,
+  StatusBar,
+  TouchableOpacity,
+  KeyboardAvoidingView,
   Platform,
   Keyboard,
-  KeyboardAvoidingView,
-  Dimensions,
-  ScrollView,
-  SafeAreaView,
+  FlatList,
 } from 'react-native';
+import {
+  Text,
+  Surface,
+  IconButton,
+  useTheme,
+  TextInput,
+  Avatar,
+  Chip,
+} from 'react-native-paper';
 import { useLLM } from '../../contexts/LLMContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Animated, { 
+  FadeInDown, 
+  FadeOutUp,
+  SlideInRight,
+  Layout,
+} from 'react-native-reanimated';
 
+interface QuickOption {
+  id: string;
+  text: string;
+  icon: string;
+}
+
+const quickOptions: QuickOption[] = [
+  { id: 'pain', text: 'I am in pain', icon: 'bandage' },
+  { id: 'medication', text: 'Need medication', icon: 'pill' },
+  { id: 'nurse', text: 'Call nurse', icon: 'doctor' },
+  { id: 'emergency', text: 'Emergency', icon: 'alert' },
+];
 
 export default function ChatScreen() {
   const { messages, sendMessage, isTyping } = useLLM();
   const { user } = useAuth();
   const [inputText, setInputText] = useState('');
-  const [showOptions, setShowOptions] = useState(true);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const theme = useTheme();
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    const keyboardWillShow = (e: KeyboardEvent) => {
-      setKeyboardHeight(e.endCoordinates.height);
-      setShowOptions(false);
-    };
-
-    const keyboardWillHide = () => {
-      setKeyboardHeight(0);
+    const keyboardDidShow = () => setShowSuggestions(false);
+    const keyboardDidHide = () => {
       if (!inputText.trim()) {
-        setShowOptions(true);
+        setShowSuggestions(true);
       }
     };
 
-    const showListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      keyboardWillShow
-    );
-    const hideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      keyboardWillHide
-    );
+    const showSubscription = Keyboard.addListener('keyboardDidShow', keyboardDidShow);
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', keyboardDidHide);
 
     return () => {
-      showListener.remove();
-      hideListener.remove();
+      showSubscription.remove();
+      hideSubscription.remove();
     };
   }, [inputText]);
-
-  // Quick Options Configuration
-  const QUICK_OPTIONS = [
-    {
-      id: 'comfort',
-      title: 'Comfort Needs',
-      options: [
-        { 
-          id: 'blanket', 
-          text: 'Need a blanket',
-          description: 'Request a blanket with high priority for immediate comfort'
-        },
-        { 
-          id: 'pillow', 
-          text: 'Need a pillow',
-          description: 'Request additional or different pillows for better comfort'
-        },
-        { 
-          id: 'temperature', 
-          text: 'Adjust room temperature',
-          description: 'Request room temperature adjustment for better comfort'
-        },
-        { 
-          id: 'position', 
-          text: 'Help with positioning',
-          description: 'Request urgent assistance with repositioning in bed'
-        },
-      ]
-    },
-    {
-      id: 'basic',
-      title: 'Basic Needs',
-      options: [
-        { 
-          id: 'water', 
-          text: 'Need water',
-          description: 'Request water or other beverages with medium priority'
-        },
-        { 
-          id: 'food', 
-          text: 'Food related',
-          description: 'Request meal service or dietary assistance'
-        },
-        { 
-          id: 'bathroom', 
-          text: 'Bathroom assistance',
-          description: 'Request urgent assistance with bathroom needs'
-        },
-        { 
-          id: 'personal', 
-          text: 'Personal items',
-          description: 'Request personal care items or toiletries'
-        },
-      ]
-    },
-    {
-      id: 'medical',
-      title: 'Medical Needs',
-      options: [
-        { 
-          id: 'pain', 
-          text: 'Pain management',
-          description: 'Request urgent assistance with pain management, rate pain 1-10'
-        },
-        { 
-          id: 'medication', 
-          text: 'Medication timing',
-          description: 'Inquire about medication schedule or request medication'
-        },
-        { 
-          id: 'symptoms', 
-          text: 'New symptoms',
-          description: 'Report new or worsening symptoms for immediate attention'
-        },
-        { 
-          id: 'nurse', 
-          text: 'Speak to nurse',
-          description: 'Request immediate nurse consultation for medical concerns'
-        },
-      ]
-    }
-  ];
-
-  // Render Quick Options
-  const renderQuickOptions = () => (
-    <ScrollView 
-      style={styles.quickOptionsContainer}
-      contentContainerStyle={styles.quickOptionsContentContainer}
-    >
-      {QUICK_OPTIONS.map((category) => (
-        <View key={category.id} style={styles.categoryContainer}>
-          <Text style={styles.categoryTitle}>{category.title}</Text>
-          <View style={styles.optionsScrollView}>
-            {category.options.map((option) => (
-              <TouchableOpacity 
-                key={option.id} 
-                style={styles.optionButton}
-                onPress={() => {
-                  setInputText(option.text);
-                }}
-              >
-                <Text style={styles.optionButtonText}>{option.text}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      ))}
-    </ScrollView>
-  );
 
   const handleSend = () => {
     if (inputText.trim()) {
       sendMessage(inputText.trim());
       setInputText('');
+      setShowSuggestions(true);
     }
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <FlatList
-          ref={flatListRef}
-          style={styles.chatContainer}
-          contentContainerStyle={styles.chatContent}
-          data={messages}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => (
-            <View style={[
-              styles.messageContainer,
-              item.isUser ? styles.userMessage : styles.botMessage
-            ]}>
-              <Text style={[
-                styles.messageText,
-                item.isUser ? styles.userMessageText : styles.botMessageText
-              ]}>
-                {item.text}
-              </Text>
-            </View>
-          )}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          ListFooterComponent={() => (
-            <>
-              {isTyping && (
-                <View style={[styles.messageContainer, styles.botMessage]}>
-                  <Text style={[styles.messageText, styles.botMessageText]}>Typing...</Text>
-                </View>
-              )}
-              <View style={{ height: Platform.OS === 'ios' ? 20 : 10 }} />
-            </>
-          )}
+  const handleQuickOption = (option: QuickOption) => {
+    sendMessage(option.text);
+    setShowSuggestions(false);
+  };
+
+  const renderMessage = ({ item, index }: { item: any; index: number }) => (
+    <Animated.View
+      entering={SlideInRight.delay(index * 100)}
+      layout={Layout.springify()}
+      style={[
+        styles.messageContainer,
+        item.isUser ? styles.userMessage : styles.assistantMessage,
+      ]}
+    >
+      {!item.isUser && (
+        <Avatar.Icon
+          size={32}
+          icon="robot"
+          style={styles.avatar}
         />
+      )}
+      <Surface style={[
+        styles.messageBubble,
+        item.isUser ? styles.userBubble : styles.assistantBubble,
+      ]}>
+        <Text style={[
+          styles.messageText,
+          item.isUser ? styles.userMessageText : styles.assistantMessageText,
+        ]}>
+          {item.text}
+        </Text>
+      </Surface>
+    </Animated.View>
+  );
 
-        <View style={[styles.bottomSection, { marginBottom: keyboardHeight }]}>
-          {showOptions && (
-            <View style={styles.quickOptionsContainer}>
-              {renderQuickOptions()}
-            </View>
-          )}
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <StatusBar barStyle="light-content" />
+      <LinearGradient
+        colors={['#6A11CB', '#2575FC'] as const}
+        style={styles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <BlurView intensity={20} style={styles.headerBlur}>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Medical Assistant</Text>
+            <Avatar.Icon
+              size={40}
+              icon="robot"
+            />
+          </View>
+        </BlurView>
+      </LinearGradient>
 
-          <SafeAreaView style={styles.inputWrapper}>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder="Type your message..."
-                multiline
-                maxHeight={100}
-              />
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={(_, index) => index.toString()}
+        contentContainerStyle={styles.messagesList}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+        ListFooterComponent={
+          isTyping ? (
+            <Animated.View
+              entering={FadeInDown}
+              exiting={FadeOutUp}
+              style={styles.typingIndicator}
+            >
+              <Surface style={styles.typingBubble}>
+                <Text style={styles.typingText}>AI is typing</Text>
+                <View style={styles.dotContainer}>
+                  {[0, 1, 2].map((dot) => (
+                    <View key={dot} style={styles.typingDot} />
+                  ))}
+                </View>
+              </Surface>
+            </Animated.View>
+          ) : null
+        }
+      />
 
-              <TouchableOpacity
-                style={[styles.sendButton, !inputText.trim() && styles.disabledButton]}
-                onPress={handleSend}
-                disabled={!inputText.trim()}
+      {showSuggestions && (
+        <Animated.View
+          entering={FadeInDown}
+          exiting={FadeOutUp}
+          style={styles.suggestionsContainer}
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.suggestionsScroll}
+          >
+            {quickOptions.map((option) => (
+              <Chip
+                key={option.id}
+                icon={() => (
+                  <Icon name={option.icon} size={20} color={theme.colors.primary} />
+                )}
+                onPress={() => handleQuickOption(option)}
+                style={styles.suggestionChip}
+                mode="outlined"
               >
-                <Text style={styles.sendButtonText}>Send</Text>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </View>
-      </View>
-    </SafeAreaView>
+                {option.text}
+              </Chip>
+            ))}
+          </ScrollView>
+        </Animated.View>
+      )}
+
+      <Surface style={styles.inputContainer}>
+        <TextInput
+          mode="flat"
+          placeholder="Type your message..."
+          value={inputText}
+          onChangeText={setInputText}
+          style={styles.input}
+          right={
+            <TextInput.Icon
+              icon="send"
+              disabled={!inputText.trim()}
+              onPress={handleSend}
+            />
+          }
+        />
+      </Surface>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
-  chatContainer: {
-    flex: 1,
+  header: {
+    paddingTop: 48,
+    paddingBottom: 16,
   },
-  chatContent: {
-    padding: 10,
+  headerBlur: {
+    padding: 16,
   },
-  bottomSection: {
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  quickOptionsContainer: {
-    maxHeight: 250,
-    backgroundColor: '#f7f7f7',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    paddingVertical: 10,
-  },
-  quickOptionsContentContainer: {
-    paddingBottom: 20,
-  },
-  inputWrapper: {
-    backgroundColor: '#fff',
-  },
-  inputContainer: {
+  headerContent: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: Platform.OS === 'ios' ? 8 : 6,
-    backgroundColor: '#fff',
   },
-  input: {
-    flex: 1,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingTop: 8,
-    paddingBottom: 8,
-    marginRight: 10,
-    fontSize: 16,
-    maxHeight: 100,
-    minHeight: 36,
-  },
-  sendButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-  },
-  sendButtonText: {
-    color: 'white',
+  headerTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#fff',
   },
-  disabledButton: {
-    opacity: 0.5,
+  messagesList: {
+    padding: 16,
   },
   messageContainer: {
-    marginBottom: 10,
-    padding: 10,
-    borderRadius: 10,
+    flexDirection: 'row',
+    marginBottom: 16,
+    alignItems: 'flex-end',
   },
   userMessage: {
-    backgroundColor: '#007AFF',
-    alignSelf: 'flex-end',
+    justifyContent: 'flex-end',
   },
-  botMessage: {
-    backgroundColor: '#e0e0e0',
-    alignSelf: 'flex-start',
+  assistantMessage: {
+    justifyContent: 'flex-start',
+  },
+  avatar: {
+    marginRight: 8,
+  },
+  messageBubble: {
+    maxWidth: '80%',
+    padding: 12,
+    borderRadius: 16,
+    elevation: 2,
+  },
+  userBubble: {
+    backgroundColor: '#2575FC',
+    borderTopRightRadius: 4,
+  },
+  assistantBubble: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 4,
   },
   messageText: {
     fontSize: 16,
+    lineHeight: 22,
   },
   userMessageText: {
-    color: 'white',
+    color: '#fff',
   },
-  botMessageText: {
+  assistantMessageText: {
     color: '#333',
   },
-  categoryContainer: {
-    marginBottom: 15,
+  typingIndicator: {
+    marginLeft: 48,
+    marginBottom: 16,
   },
-  categoryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    paddingHorizontal: 15,
-    marginBottom: 8,
-    color: '#2c3e50',
-  },
-  optionsScrollView: {
-    paddingHorizontal: 10,
+  typingBubble: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 16,
+    maxWidth: 100,
   },
-  optionButton: {
-    backgroundColor: '#e6f2ff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#a0c4e7',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionButtonText: {
+  typingText: {
     fontSize: 14,
-    color: '#2980b9',
-    fontWeight: '500',
+    color: '#666',
+    marginRight: 8,
+  },
+  dotContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  typingDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#666',
+    marginHorizontal: 2,
+    opacity: 0.6,
+  },
+  suggestionsContainer: {
+    padding: 8,
+  },
+  suggestionsScroll: {
+    paddingHorizontal: 8,
+  },
+  suggestionChip: {
+    marginHorizontal: 4,
+  },
+  inputContainer: {
+    padding: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  input: {
+    backgroundColor: '#fff',
   },
 });

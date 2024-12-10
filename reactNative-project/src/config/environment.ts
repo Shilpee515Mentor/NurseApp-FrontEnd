@@ -5,7 +5,7 @@ const DEV_CONFIG = {
   // Use localhost for iOS simulator, your computer's IP for physical devices
   HOST: Platform.select({
     ios: 'localhost',
-    android: '192.168.1.8', // Replace this with your computer's IP when needed
+    android: '192.168.1.7', // Replace this with your computer's IP when needed
   }),
   PORT: '3000',
 };

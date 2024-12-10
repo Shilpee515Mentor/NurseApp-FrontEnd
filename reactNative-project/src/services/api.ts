@@ -134,6 +134,29 @@ export interface RequestFilters {
   department?: string | null;
 }
 
+export interface Task {
+  _id: string;
+  description: string;
+  assignedTo: string;
+  assignedBy: string;
+  patient?: string;
+  status: 'pending' | 'completed' | 'rejected';
+  rejectionReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Message {
+  _id: string;
+  sender: string;
+  receiver: string;
+  content: string;
+  messageType: 'text' | 'image';
+  imageUrl?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export const departmentApi = {
   getAll: async () => {
     try {
@@ -305,6 +328,69 @@ export const appointmentApi = {
       console.error('Error fetching appointments:', error);
       throw error;
     }
+  },
+};
+
+export const taskApi = {
+  getNurseTasks: async () => {
+    const response = await api.get<Task[]>('/tasks/nurse');
+    return response.data;
+  },
+
+  updateTaskStatus: async (taskId: string, status: 'completed' | 'rejected', rejectionReason?: string) => {
+    const response = await api.put(`/tasks/${taskId}/status`, { status, rejectionReason });
+    return response.data;
+  },
+
+  createTask: async (data: {
+    description: string;
+    assignedTo: string;
+    patient?: string;
+  }) => {
+    const response = await api.post('/tasks', data);
+    return response.data;
+  },
+};
+
+export const messageApi = {
+  getNurses: async () => {
+    const response = await api.get<User[]>('/users/nurses');
+    return response.data;
+  },
+
+  getConversation: async (nurseId: string) => {
+    const response = await api.get<Message[]>(`/messages/conversation/${nurseId}`);
+    return response.data;
+  },
+
+  sendMessage: async (data: {
+    receiver: string;
+    content: string;
+    messageType: 'text' | 'image';
+    imageUrl?: string;
+  }) => {
+    const response = await api.post('/messages/send', data);
+    return response.data;
+  },
+
+  uploadImage: async (imageUri: string) => {
+    const formData = new FormData();
+    const filename = imageUri.split('/').pop() || 'image.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+    formData.append('image', {
+      uri: imageUri,
+      name: filename,
+      type,
+    } as any);
+
+    const response = await api.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
   },
 };
 
