@@ -16,17 +16,20 @@ import {
 } from 'react-native-paper';
 import { useAuth } from '../../contexts/AuthContext';
 import { taskApi, Task } from '../../services/api';
+import { Picker } from '@react-native-picker/picker';
 
 export default function TasksScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const { user } = useAuth();
 
-  const fetchTasks = async () => {
+  const fetchTasks = async (status: string) => {
     try {
       const data = await taskApi.getNurseTasks();
-      setTasks(data);
+      const filteredTasks = status === 'all' ? data : data.filter(task => task.status === status);
+      setTasks(filteredTasks);
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch tasks');
     } finally {
@@ -36,13 +39,13 @@ export default function TasksScreen() {
   };
 
   useEffect(() => {
-    fetchTasks();
-  }, []);
+    fetchTasks(selectedStatus);
+  }, [selectedStatus]);
 
   const handleStatusChange = async (taskId: string, newStatus: 'completed' | 'rejected') => {
     try {
       await taskApi.updateTaskStatus(taskId, newStatus);
-      fetchTasks();
+      fetchTasks(selectedStatus);
     } catch (error) {
       Alert.alert('Error', 'Failed to update task status');
     }
@@ -116,6 +119,16 @@ export default function TasksScreen() {
 
   return (
     <View style={styles.container}>
+      <Picker
+        selectedValue={selectedStatus}
+        onValueChange={(itemValue) => setSelectedStatus(itemValue)}
+        style={styles.picker}
+      >
+        <Picker.Item label="All" value="all" />
+        <Picker.Item label="Pending" value="pending" />
+        <Picker.Item label="Completed" value="completed" />
+        <Picker.Item label="Rejected" value="rejected" />
+      </Picker>
       <FlatList
         data={tasks}
         renderItem={renderTask}
@@ -123,7 +136,7 @@ export default function TasksScreen() {
         contentContainerStyle={styles.listContainer}
         ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={fetchTasks} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchTasks(selectedStatus)} />
         }
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
@@ -188,5 +201,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 32,
+  },
+  picker: {
+    width: '100%',
+    marginBottom: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#cccccc',
+    fontSize: 16,
+    color: '#333333',
   },
 });

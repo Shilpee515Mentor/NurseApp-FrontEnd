@@ -51,3 +51,30 @@ export const getNurses = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching nurses' });
   }
 };
+
+export const markMessageAsRead = async (req: Request, res: Response) => {
+  try {
+    const { messageId } = req.params;
+    const message = await Message.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    // Only allow the receiver to mark message as read
+    if (message.receiver.toString() !== req.user?._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to mark this message as read' });
+    }
+
+    message.isRead = true;
+    await message.save();
+
+    // Emit socket event for real-time update
+    req.app.get('io')?.emit('messageRead', { messageId });
+
+    res.json({ message: 'Message marked as read' });
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+    res.status(500).json({ message: 'Error marking message as read' });
+  }
+};

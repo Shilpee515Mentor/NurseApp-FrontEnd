@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IUser, UserRole,UserStatus } from '../types';
+import { DailyStatus, IUser, UserRole,UserStatus } from '../types';
 import bcrypt from 'bcryptjs';
 
 const userSchema = new Schema<IUser>({
@@ -41,6 +41,15 @@ const userSchema = new Schema<IUser>({
     required: function() {
       return this.role === UserRole.PATIENT;
     }
+  },
+  phone: {
+    type: String,
+    trim: true,
+    required: false
+  },
+  dailyStatus: {
+    type: String,
+    enum: Object.values(DailyStatus),
   },
   active: {
     type: Boolean,

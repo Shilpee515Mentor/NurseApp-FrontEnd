@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -30,6 +30,8 @@ import Animated, {
   Layout,
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { Department, departmentApi } from '../../services/api';
+import { Picker } from '@react-native-picker/picker';
 
 const { width } = Dimensions.get('window');
 
@@ -64,6 +66,20 @@ export default function RegisterScreen() {
   const theme = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([])
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await departmentApi.getAll();
+        setDepartments(response.departments);
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   const handleSubmit = async (values: any) => {
     try {
@@ -133,8 +149,8 @@ export default function RegisterScreen() {
                 password: '',
                 confirmPassword: '',
                 role: 'patient',
-                department: '',
                 room: '',
+                department: '',
               }}
               validationSchema={validationSchema}
               onSubmit={handleSubmit}
@@ -236,16 +252,17 @@ export default function RegisterScreen() {
                   />
 
                   {values.role === 'nurse' && (
-                    <TextInput
-                      mode="outlined"
-                      label="Department"
-                      value={values.department}
-                      onChangeText={handleChange('department')}
-                      onBlur={handleBlur('department')}
-                      error={touched.department && !!errors.department}
-                      style={styles.input}
-                      left={<TextInput.Icon icon="hospital-building" />}
-                    />
+                    <Picker
+                      style={styles.picker}
+                      selectedValue={values.department}
+                      onValueChange={handleChange('department')}
+                    >
+                      <Picker.Item label="Select Department" value="" />
+                      {departments.map(dept => (
+                        <Picker.Item key={dept.id} label={dept.name} value={dept.id} />
+                      ))}
+                      <Picker.Item label="No departments available" value="" />
+                    </Picker>
                   )}
 
                   {values.role === 'patient' && (
@@ -348,6 +365,15 @@ const styles = StyleSheet.create({
   },
   halfInput: {
     width: '48%',
+  },
+  picker: {
+    height: 50,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 5,
+    backgroundColor: '#fff',
+    paddingHorizontal: 10,
+    marginVertical: 10,
   },
   button: {
     marginTop: 8,

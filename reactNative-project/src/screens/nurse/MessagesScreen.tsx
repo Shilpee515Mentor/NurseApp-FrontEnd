@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -19,19 +19,82 @@ import {
 } from 'react-native-paper';
 import { useAuth } from '../../contexts/AuthContext';
 import { messageApi, Message, User } from '../../services/api';
-import * as ImagePicker from 'expo-image-picker';
+import { Socket } from 'socket.io-client';
 import io from 'socket.io-client';
 import { CONFIG } from '../../config/environment';
 
+interface SocketMessage extends Message {
+  _id: string;
+  sender: string;
+  receiver: string;
+  content: string;
+  messageType: 'text' | 'image';
+  imageUrl?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export default function MessagesScreen() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<SocketMessage[]>([]);
   const [messageText, setMessageText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [socketConnected, setSocketConnected] = useState(false);
   const [nurses, setNurses] = useState<User[]>([]);
   const [selectedNurse, setSelectedNurse] = useState<User | null>(null);
   const { user } = useAuth();
-  const socketRef = useRef<any>(null);
+  const socketRef = useRef<Socket | null>(null);
   const flatListRef = useRef<FlatList>(null);
+
+  const setupSocket = useCallback(() => {
+    try {
+      socketRef.current = io(CONFIG.API_URL, {
+        auth: {
+          token: user?.token
+        },
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      socketRef.current.on('connect', () => {
+        console.log('Socket connected');
+        setSocketConnected(true);
+      });
+
+      socketRef.current.on('disconnect', () => {
+        console.log('Socket disconnected');
+        setSocketConnected(false);
+      });
+
+      socketRef.current.on('error', (error) => {
+        console.error('Socket error:', error);
+        Alert.alert('Connection Error', 'Failed to connect to chat server');
+      });
+      
+      socketRef.current.on('newMessage', (message: SocketMessage) => {
+        setMessages(prev => {
+          // Avoid duplicate messages
+          if (prev.some(m => m._id === message._id)) return prev;
+          return [message, ...prev];
+        });
+        
+        // Mark message as read if it's for the current conversation
+        if (selectedNurse && message.sender === selectedNurse._id) {
+          markMessageAsRead(message._id);
+        }
+      });
+
+      socketRef.current.on('messageRead', ({ messageId }) => {
+        setMessages(prev => prev.map(msg => 
+          msg._id === messageId ? { ...msg, isRead: true } : msg
+        ));
+      });
+
+    } catch (error) {
+      console.error('Socket setup error:', error);
+      Alert.alert('Connection Error', 'Failed to initialize chat connection');
+    }
+  }, [user, selectedNurse]);
 
   useEffect(() => {
     fetchNurses();
@@ -42,30 +105,44 @@ export default function MessagesScreen() {
         socketRef.current.disconnect();
       }
     };
-  }, []);
+  }, [setupSocket]);
 
-  const setupSocket = () => {
-    socketRef.current = io(CONFIG.API_URL);
-    
-    socketRef.current.on('newMessage', (message: Message) => {
-      setMessages(prev => [message, ...prev]);
-    });
+  const markMessageAsRead = async (messageId: string) => {
+    try {
+      await messageApi.markMessageAsRead(messageId);
+      socketRef.current?.emit('messageRead', { messageId });
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+    }
   };
 
   const fetchNurses = async () => {
     try {
+      setLoading(true);
       const data = await messageApi.getNurses();
       setNurses(data.filter(nurse => nurse._id !== user?._id));
     } catch (error) {
+      console.error('Error fetching nurses:', error);
       Alert.alert('Error', 'Failed to fetch nurses');
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchMessages = async (nurseId: string) => {
     try {
+      setLoading(true);
       const data = await messageApi.getConversation(nurseId);
       setMessages(data);
+      
+      // Mark all unread messages as read
+      data.forEach(message => {
+        if (!message.isRead && message.sender === nurseId) {
+          markMessageAsRead(message._id);
+        }
+      });
     } catch (error) {
+      console.error('Error fetching messages:', error);
       Alert.alert('Error', 'Failed to fetch messages');
     } finally {
       setLoading(false);
@@ -73,38 +150,56 @@ export default function MessagesScreen() {
   };
 
   const sendMessage = async (content: string, messageType: 'text' | 'image' = 'text', imageUrl?: string) => {
-    if (!selectedNurse) return;
+    if (!selectedNurse || !content.trim()) return;
 
     try {
-      await messageApi.sendMessage({
+      const response = await messageApi.sendMessage({
         receiver: selectedNurse._id,
-        content,
+        content: content.trim(),
         messageType,
         imageUrl,
       });
+
+      // Optimistically add message to UI
+      const newMessage: SocketMessage = {
+        _id: response._id,
+        sender: user?._id || '',
+        receiver: selectedNurse._id,
+        content: content.trim(),
+        messageType,
+        imageUrl,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      setMessages(prev => [newMessage, ...prev]);
       setMessageText('');
+      
+      // Emit socket event
+      socketRef.current?.emit('sendMessage', newMessage);
     } catch (error) {
+      console.error('Error sending message:', error);
       Alert.alert('Error', 'Failed to send message');
     }
   };
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    });
+    // const result = await ImagePicker.launchImageLibraryAsync({
+    //   mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    //   quality: 0.8,
+    // });
 
-    if (!result.canceled) {
-      try {
-        const uploadResult = await messageApi.uploadImage(result.assets[0].uri);
-        await sendMessage('Image', 'image', uploadResult.imageUrl);
-      } catch (error) {
-        Alert.alert('Error', 'Failed to upload image');
-      }
-    }
+    // if (!result.canceled) {
+    //   try {
+    //     const uploadResult = await messageApi.uploadImage(result.assets[0].uri);
+    //     await sendMessage('Image', 'image', uploadResult.imageUrl);
+    //   } catch (error) {
+    //     Alert.alert('Error', 'Failed to upload image');
+    //   }
+    // }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const renderMessage = ({ item }: { item: SocketMessage }) => {
     const isOwnMessage = item.sender === user?._id;
 
     return (

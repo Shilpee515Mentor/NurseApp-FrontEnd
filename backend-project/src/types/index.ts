@@ -23,6 +23,12 @@ export enum UserStatus {
   REJECTED = 'rejected'
 }
 
+export enum DailyStatus {
+  ACTIVE = 'Active',
+  ON_LEAVE = 'On Leave',
+  BUSY = 'Busy'
+}
+
 export enum NursingDepartment {
   EMERGENCY = 'Emergency',
   INTENSIVE_CARE = 'Intensive Care',
@@ -50,6 +56,8 @@ export interface IUser {
   room?: string;
   active: boolean;
   status: UserStatus;
+  dailyStatus?:DailyStatus;
+  phone?: string;
   createdAt: Date;
   updatedAt: Date;
 }

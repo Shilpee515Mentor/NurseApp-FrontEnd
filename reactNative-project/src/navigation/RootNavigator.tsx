@@ -28,6 +28,8 @@ import AppointmentScreen from '../screens/patient/AppointmentScreen';
 import EmergencyScreen from '../screens/patient/EmergencyScreen';
 import MedicalRecordsScreen from '../screens/patient/MedicalRecordsScreen';
 import MedicationsScreen from '../screens/patient/MedicationsScreen';
+import TasksScreen from 'src/screens/nurse/TasksScreen';
+import MessagesScreen from 'src/screens/nurse/MessagesScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -87,6 +89,16 @@ export default function RootNavigator() {
             name="MyPatients"
             component={MyPatientsScreen}
             options={{ title: 'My Patients' }}
+          />
+           <Stack.Screen
+            name="Tasks"
+            component={TasksScreen}
+            options={{ title: 'My Tasks' }}
+          />
+           <Stack.Screen
+            name="Messages"
+            component={MessagesScreen}
+            options={{ title: 'My Messages' }}
           />
         </Stack.Group>
       ) : user?.role === 'patient' ? (

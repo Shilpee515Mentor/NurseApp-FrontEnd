@@ -31,7 +31,7 @@ export default function PatientRegistrationScreen() {
   };
 
   const generatePassword = (firstName: string, lastName: string): string => {
-    const today = format(new Date(), 'dd/MM/yy');
+    const today = format(new Date(), 'dd/MM/yy').replace(/\//g, '');
     return `${lastName.toLowerCase()}${firstName.toLowerCase()}${today}`;
   };
 
@@ -47,7 +47,7 @@ export default function PatientRegistrationScreen() {
       
       Alert.alert(
         'Success',
-        'Patient registered successfully. The password has been generated using the format: lastnamefirstnameDD/MM/YY',
+        'Patient registered successfully. The password has been generated using the format: lastNameFirstNameDDMMYY',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {

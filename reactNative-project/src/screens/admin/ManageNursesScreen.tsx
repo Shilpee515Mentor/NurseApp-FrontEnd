@@ -6,6 +6,7 @@ import {
   StatusBar,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import {
   Text,
@@ -22,6 +23,7 @@ import {
   Button,
   Divider,
   List,
+  TextInput,
 } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -29,6 +31,8 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { format } from 'date-fns';
 import { User } from '../../types/api';
+import { Department, departmentApi, taskApi, userApi } from '../../services/api';
+import axios from 'axios';
 
 interface NurseStats {
   completedRequests: number;
@@ -47,33 +51,25 @@ export default function ManageNursesScreen() {
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [isTaskModalVisible, setIsTaskModalVisible] = useState(false);
+  const [taskDescription, setTaskDescription] = useState('');
+  const [isAssigningTask, setIsAssigningTask] = useState(false);
   const theme = useTheme();
-
-  const departments = ['Cardiology', 'Neurology', 'Pediatrics', 'Oncology'];
-  const statuses = ['Active', 'On Leave', 'Busy'];
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   useEffect(() => {
     fetchNurses();
+    fetchDepartments();
   }, []);
 
   const fetchNurses = async () => {
-    // Mock data - replace with actual API call
-    const mockNurses: User[] = [
-      {
-        _id: '1',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@hospital.com',
-        role: 'nurse',
-        department: 'Cardiology',
-        phone: '+1234567890',
-        status: 'Active',
-        createdAt: new Date().toISOString(),
-      },
-      // Add more mock nurses...
-    ];
-    setNurses(mockNurses);
-    setFilteredNurses(mockNurses);
+    try {
+      const response = await userApi.getUsersByRole('nurse');
+      setNurses(response);
+      setFilteredNurses(response);
+    } catch (err) {
+      console.error('Error fetching nurses:', err);
+    }
   };
 
   const fetchNurseStats = async (nurseId: string) => {
@@ -86,7 +82,14 @@ export default function ManageNursesScreen() {
     };
     setNurseStats(mockStats);
   };
-
+  const fetchDepartments = async () => {
+    try {
+      const response = await departmentApi.getAll();
+      setDepartments(response.departments);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+    }
+  };
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     const filtered = nurses.filter(nurse =>
@@ -98,11 +101,19 @@ export default function ManageNursesScreen() {
   };
 
   const handleFilter = (filter: string) => {
-    setSelectedFilters(prev =>
-      prev.includes(filter)
+    setSelectedFilters(prev => {
+      const newFilters = prev.includes(filter)
         ? prev.filter(f => f !== filter)
-        : [...prev, filter]
-    );
+        : [...prev, filter];
+
+      // Now use the newFilters to filter nurses
+      const filtered = nurses.filter(nurse => 
+        newFilters.length === 0 || newFilters.includes(nurse.department!.toLocaleLowerCase())
+      );
+      setFilteredNurses(filtered);
+      
+      return newFilters; // Return the updated filters
+    });
   };
 
   const renderNurseCard = (nurse: User) => (
@@ -225,13 +236,13 @@ export default function ManageNursesScreen() {
         <View style={styles.filterChips}>
           {departments.map((dept) => (
             <Chip
-              key={dept}
-              selected={selectedFilters.includes(dept)}
-              onPress={() => handleFilter(dept)}
+              key={dept.id}
+              selected={selectedFilters.includes(dept.id)}
+              onPress={() => handleFilter(dept.id)}
               style={styles.filterChip}
               showSelectedOverlay
             >
-              {dept}
+              {dept.name}
             </Chip>
           ))}
         </View>
@@ -274,8 +285,18 @@ export default function ManageNursesScreen() {
                 >
                   {selectedNurse.status}
                 </Chip>
+                <Button
+                  mode="contained"
+                  onPress={() => setIsTaskModalVisible(true)}
+                  style={styles.assignTaskButton}
+                  icon="clipboard-text-outline"
+                >
+                  Assign Task
+                </Button>
 
-                <Surface style={styles.statsCard}>
+               
+
+                {/* <Surface style={styles.statsCard}>
                   <View style={styles.statsGrid}>
                     <View style={styles.statItem}>
                       <Icon name="clipboard-check" size={24} color={theme.colors.primary} />
@@ -298,7 +319,7 @@ export default function ManageNursesScreen() {
                       <Text style={styles.statLabel}>Rating</Text>
                     </View>
                   </View>
-                </Surface>
+                </Surface> */}
 
                 <List.Section style={styles.detailsList}>
                   <List.Item
@@ -346,12 +367,72 @@ export default function ManageNursesScreen() {
           )}
         </Modal>
       </Portal>
-
-      <FAB
+ {/* Task Assignment Modal */}
+ <Portal>
+                  <Modal
+                    visible={isTaskModalVisible}
+                    onDismiss={() => {
+                      setIsTaskModalVisible(false);
+                      setTaskDescription('');
+                    }}
+                    contentContainerStyle={styles.taskModalContainer}
+                  >
+                    <Text style={styles.taskModalTitle}>Assign New Task</Text>
+                    <TextInput
+                      mode="outlined"
+                      label="Task Description"
+                      value={taskDescription}
+                      onChangeText={setTaskDescription}
+                      multiline
+                      numberOfLines={3}
+                      style={styles.taskInput}
+                    />
+                    <View style={styles.taskModalButtons}>
+                      <Button
+                        mode="outlined"
+                        onPress={() => {
+                          setIsTaskModalVisible(false);
+                          setTaskDescription('');
+                        }}
+                        style={styles.taskModalButton}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        mode="contained"
+                        onPress={async () => {
+                          if (!taskDescription.trim()) return;
+                          setIsAssigningTask(true);
+                          try {
+                            await taskApi.createTask({
+                              description: taskDescription,
+                              assignedTo: selectedNurse!._id,
+                            });
+                            setIsTaskModalVisible(false);
+                            setTaskDescription('');
+                            Alert.alert('Task assigned successfully');
+                          } catch (error) {
+                            console.error('Error assigning task:', error);
+                            Alert.alert('Failed to assign task');
+                          } finally {
+                            setIsAssigningTask(false);
+                          }
+                        }}
+                        loading={isAssigningTask}
+                        disabled={isAssigningTask || !taskDescription.trim()}
+                        style={styles.taskModalButton}
+                      >
+                        Assign
+                      </Button>
+                    </View>
+                  </Modal>
+                </Portal>
+      {/* <FAB
         icon="plus"
         style={styles.fab}
-        onPress={() => {/* Handle adding new nurse */}}
-      />
+        onPress={() =>}
+      /> */}
+
     </View>
   );
 }
@@ -538,5 +619,30 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     marginHorizontal: 8,
+  },
+  assignTaskButton: {
+    marginTop: 16,
+  },
+  taskModalContainer: {
+    backgroundColor: 'white',
+    padding: 20,
+    margin: 20,
+    borderRadius: 8,
+  },
+  taskModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  taskInput: {
+    marginBottom: 16,
+  },
+  taskModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  taskModalButton: {
+    minWidth: 100,
   },
 }); 

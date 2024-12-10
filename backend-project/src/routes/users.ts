@@ -21,7 +21,7 @@ const router = Router();
 router.use(protect);
 
 // Admin routes
-router.get('/', authorize(UserRole.ADMIN), getUsers);
+router.get('/', authorize(UserRole.ADMIN, UserRole.NURSE), getUsers);
 router.get('/by-role', authorize(UserRole.ADMIN), validateGetUsersByRole, getUsersByRole);
 router.get('/pending-nurses', authorize(UserRole.ADMIN), getPendingNurses);
 router.patch('/:id', authorize(UserRole.ADMIN), validateUserUpdate, updateUser);

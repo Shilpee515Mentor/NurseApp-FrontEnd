@@ -354,7 +354,8 @@ export const taskApi = {
 
 export const messageApi = {
   getNurses: async () => {
-    const response = await api.get<User[]>('/users/nurses');
+    const params = { role: 'nurse' };
+    const response = await api.get<User[]>('/users', { params });
     return response.data;
   },
 
@@ -375,21 +376,25 @@ export const messageApi = {
 
   uploadImage: async (imageUri: string) => {
     const formData = new FormData();
-    const filename = imageUri.split('/').pop() || 'image.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
+    const uriParts = imageUri.split('.');
+    const fileType = uriParts[uriParts.length - 1];
 
     formData.append('image', {
       uri: imageUri,
-      name: filename,
-      type,
+      name: `photo.${fileType}`,
+      type: `image/${fileType}`,
     } as any);
 
-    const response = await api.post('/upload', formData, {
+    const response = await api.post('/messages/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  },
+
+  markMessageAsRead: async (messageId: string) => {
+    const response = await api.put(`/messages/${messageId}/read`);
     return response.data;
   },
 };
