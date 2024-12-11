@@ -28,6 +28,7 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { useAuth } from '../../contexts/AuthContext';
+import { userApi } from 'src/services/api';
 
 export default function EmergencyScreen() {
   const [emergencyActive, setEmergencyActive] = useState(false);
@@ -68,14 +69,26 @@ export default function EmergencyScreen() {
     setTimeout(() => {
       setHelpOnWay(true);
     }, 2000);
-
-    // Mock emergency alert to nurses/staff
     try {
-      // await emergencyApi.alert({
-      //   patientId: user?.id,
-      //   room: user?.room,
-      //   timestamp: new Date().toISOString(),
-      // });
+
+      userApi.getNurseByDepartment('emergency').then(async response => {
+        if(!!!response) {
+          Alert.alert('Error', 'No Emergency Nurse Available,Contact Admin');
+        }
+        const requestData = {
+          patient: user.id, 
+          nurse: response?._id, 
+          priority: 'high', 
+          description: 'Emergency alert triggered', 
+          department: 'Emergency',
+        };
+  
+        await userApi.createRequest(requestData);
+      }).catch(error => {
+        console.error('Error fetching nurse:', error);
+      });
+
+     
     } catch (error) {
       Alert.alert('Error', 'Failed to send emergency alert');
     }
@@ -178,7 +191,7 @@ export default function EmergencyScreen() {
               </View>
               
               {helpOnWay && (
-                <>
+                <React.Fragment>
                   <Text style={styles.statusText}>Help is on the way!</Text>
                   <View style={styles.estimatedTime}>
                     <Text style={styles.estimatedTimeText}>
@@ -190,7 +203,7 @@ export default function EmergencyScreen() {
                       style={styles.progressBar}
                     />
                   </View>
-                </>
+                </React.Fragment>
               )}
 
               <Button
@@ -203,7 +216,7 @@ export default function EmergencyScreen() {
               </Button>
             </Surface>
           ) : (
-            <>
+            <React.Fragment>
               <EmergencyButton />
               <Surface style={styles.infoCard}>
                 <Text style={styles.infoTitle}>Quick Actions</Text>
@@ -212,7 +225,7 @@ export default function EmergencyScreen() {
                 </Text>
               </Surface>
               <QuickActions />
-            </>
+            </React.Fragment>
           )}
         </Animated.View>
       </ScrollView>
@@ -228,7 +241,7 @@ export default function EmergencyScreen() {
             <Text style={styles.modalTitle}>Confirm Emergency</Text>
           </View>
           <Text style={styles.modalText}>
-            Are you sure you want to trigger an emergency alert? This will immediately notify all medical staff.
+            Are you sure you want to trigger an emergency alert? This will immediately notify medical staff.
           </Text>
           <View style={styles.modalActions}>
             <Button
@@ -409,4 +422,4 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
   },
-}); 
+});

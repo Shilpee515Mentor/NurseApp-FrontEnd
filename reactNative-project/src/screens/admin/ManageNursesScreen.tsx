@@ -41,7 +41,7 @@ interface NurseStats {
   rating: number;
 }
 
-export default function ManageNursesScreen() {
+export default function ManageNursesScreen({ navigation }) {
   const [nurses, setNurses] = useState<User[]>([]);
   const [filteredNurses, setFilteredNurses] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -294,8 +294,6 @@ export default function ManageNursesScreen() {
                   Assign Task
                 </Button>
 
-               
-
                 {/* <Surface style={styles.statsCard}>
                   <View style={styles.statsGrid}>
                     <View style={styles.statItem}>
@@ -355,7 +353,7 @@ export default function ManageNursesScreen() {
                   </Button>
                   <Button
                     mode="contained"
-                    onPress={() => {}}
+                    onPress={() => navigation.navigate('ManageSchedules', { nurse: selectedNurse })}
                     style={[styles.actionButton, { backgroundColor: '#2196F3' }]}
                     icon="calendar"
                   >

@@ -8,6 +8,7 @@ import {
   approveNurse,
   registerPatient,
   getUsersByRole,
+  getRandomNurse,
 } from '../controllers/userController';
 import {
   validateUserUpdate,
@@ -29,5 +30,7 @@ router.patch('/:id/approve', authorize(UserRole.ADMIN), validateApproval, approv
 
 // Nurse routes
 router.post('/register-patient', authorize(UserRole.NURSE), validatePatientRegistration, registerPatient);
+
+router.get('/getNurseFromDepartment', getRandomNurse);
 
 export default router;

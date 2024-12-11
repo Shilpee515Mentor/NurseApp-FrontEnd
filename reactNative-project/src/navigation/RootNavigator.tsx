@@ -14,11 +14,15 @@ import RequestManagementScreen from '../screens/admin/RequestManagementScreen';
 import ManageNursesScreen from '../screens/admin/ManageNursesScreen';
 import PatientRecordsScreen from '../screens/admin/PatientRecordsScreen';
 import ReportsScreen from '../screens/admin/ReportsScreen';
+import ManageSchedulesScreen from '../screens/admin/ManageSchedulesScreen';
 
 // Nurse Screens
 import NurseDashboard from '../screens/nurse/NurseDashboard';
 import PatientRegistrationScreen from '../screens/nurse/PatientRegistrationScreen';
 import MyPatientsScreen from '../screens/nurse/MyPatientsScreen';
+import ScheduleScreen from '../screens/nurse/ScheduleScreen';
+import TasksScreen from 'src/screens/nurse/TasksScreen';
+import MessagesScreen from 'src/screens/nurse/MessagesScreen';
 
 // Patient Screens
 import PatientDashboard from '../screens/patient/PatientDashboard';
@@ -28,8 +32,6 @@ import AppointmentScreen from '../screens/patient/AppointmentScreen';
 import EmergencyScreen from '../screens/patient/EmergencyScreen';
 import MedicalRecordsScreen from '../screens/patient/MedicalRecordsScreen';
 import MedicationsScreen from '../screens/patient/MedicationsScreen';
-import TasksScreen from 'src/screens/nurse/TasksScreen';
-import MessagesScreen from 'src/screens/nurse/MessagesScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -76,6 +78,12 @@ export default function RootNavigator() {
             component={ReportsScreen}
             options={{ title: 'Reports' }}
           />
+          <Stack.Screen
+            name="ManageSchedules"
+            component={ManageSchedulesScreen}
+            initialParams={{ nurse: null }}
+            options={{ title: 'Manage Schedules' }}
+          />
         </Stack.Group>
       ) : user?.role === 'nurse' ? (
         <Stack.Group>
@@ -90,12 +98,17 @@ export default function RootNavigator() {
             component={MyPatientsScreen}
             options={{ title: 'My Patients' }}
           />
-           <Stack.Screen
+          <Stack.Screen
+            name="Schedule"
+            component={ScheduleScreen}
+            options={{ title: 'My Schedule' }}
+          />
+          <Stack.Screen
             name="Tasks"
             component={TasksScreen}
             options={{ title: 'My Tasks' }}
           />
-           <Stack.Screen
+          <Stack.Screen
             name="Messages"
             component={MessagesScreen}
             options={{ title: 'My Messages' }}

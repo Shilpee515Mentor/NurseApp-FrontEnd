@@ -13,6 +13,7 @@ import userRoutes from './routes/users';
 import departmentRoutes from './routes/departments';
 import taskRoutes from './routes/taskRoutes';
 import messageRoutes from './routes/messageRoutes';
+import shiftsRouter from './routes/shifts';
 
 dotenv.config();
 
@@ -51,6 +52,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/shifts', shiftsRouter);
 
 // Socket.IO setup
 setupSocketHandlers(io);

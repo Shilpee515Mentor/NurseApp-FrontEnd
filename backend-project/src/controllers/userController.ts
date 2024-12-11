@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { User } from '../models/User';
 import { UserStatus } from '../types';
-import bcrypt from 'bcryptjs';
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
@@ -169,3 +168,20 @@ export const registerPatient = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error registering patient' });
   }
 };
+
+export const getRandomNurse = async (req: Request, res: Response) => {
+  try {
+    const { department } = req.query;
+    const filter:any = { role: 'nurse', active: true };
+    if (department) filter.department = department;
+
+
+    const nurses = await User.find(filter);
+    const randomNurse = nurses[Math.floor(Math.random() * nurses.length)];
+    res.json(randomNurse);
+  } catch (error) {
+    console.error('Error fetching random nurse:', error);
+    res.status(500).json({ message: 'Error fetching random nurse' });
+  }
+};
+

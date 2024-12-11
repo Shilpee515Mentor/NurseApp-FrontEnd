@@ -157,6 +157,27 @@ export interface Message {
   createdAt: string;
 }
 
+export interface Shift {
+  _id: string;
+  nurse: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  department: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateShiftData {
+  nurse: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  department: string;
+  notes?: string;
+}
+
 export const departmentApi = {
   getAll: async () => {
     try {
@@ -205,6 +226,19 @@ export const userApi = {
       return response.data;
     } catch (error: any) {
       console.error('Failed to create request:', {
+        message: error.message,
+        response: error.response?.data,
+      });
+      throw error;
+    }
+  },
+
+  getNurseByDepartment: async (department: string) => {
+    try {
+      const response = await api.get(`/users/getNurseFromDepartment?department=${department.toLocaleLowerCase()}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to fetch nurses by department:', {
         message: error.message,
         response: error.response?.data,
       });
@@ -397,6 +431,60 @@ export const messageApi = {
     const response = await api.put(`/messages/${messageId}/read`);
     return response.data;
   },
+};
+
+export const shiftApi = {
+  getNurseShifts: async (nurseId: string) => {
+    try {
+      const response = await api.get(`/shifts/nurse/${nurseId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching nurse shifts:', error);
+      throw error;
+    }
+  },
+
+  createShift: async (data: CreateShiftData) => {
+    try {
+      const response = await api.post('/shifts', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating shift:', error);
+      throw error;
+    }
+  },
+
+  updateShift: async (shiftId: string, data: Partial<CreateShiftData>) => {
+    try {
+      const response = await api.put(`/shifts/${shiftId}`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating shift:', error);
+      throw error;
+    }
+  },
+
+  deleteShift: async (shiftId: string) => {
+    try {
+      const response = await api.delete(`/shifts/${shiftId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting shift:', error);
+      throw error;
+    }
+  },
+
+  getDepartmentShifts: async (department: string, startDate: string, endDate: string) => {
+    try {
+      const response = await api.get('/shifts/department', {
+        params: { department, startDate, endDate }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching department shifts:', error);
+      throw error;
+    }
+  }
 };
 
 export default api;
